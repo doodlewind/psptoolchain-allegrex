@@ -39,6 +39,10 @@ PROC_NR=$(getconf _NPROCESSORS_ONLN)
 
 cd platform/psp
 
+if [[ "${PSPTOOLCHAIN_ALLEGREX_PTHREAD_EMBEDDED_NOABICALLS:-}" = "1" ]]; then
+  export GLOBAL_CFLAGS="${GLOBAL_CFLAGS:-} ${PSPTOOLCHAIN_ALLEGREX_NOABICALLS_FLAGS}"
+fi
+
 ## Compile and install.
 make --quiet -j $PROC_NR clean
 make --quiet -j $PROC_NR all
