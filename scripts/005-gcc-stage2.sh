@@ -55,6 +55,12 @@ rm -rf build-$TARGET-stage2
 mkdir build-$TARGET-stage2
 cd build-$TARGET-stage2
 
+if [[ "${PSPTOOLCHAIN_ALLEGREX_GCC_RUNTIME_NOABICALLS:-}" = "1" ]]; then
+  export CFLAGS_FOR_TARGET="${CFLAGS_FOR_TARGET:-} ${PSPTOOLCHAIN_ALLEGREX_NOABICALLS_FLAGS}"
+  export CXXFLAGS_FOR_TARGET="${CXXFLAGS_FOR_TARGET:-} ${PSPTOOLCHAIN_ALLEGREX_NOABICALLS_FLAGS}"
+  export CCASFLAGS="${CCASFLAGS:-} ${PSPTOOLCHAIN_ALLEGREX_NOABICALLS_FLAGS}"
+fi
+
 ## Configure the build.
 ../configure \
   --quiet \
@@ -63,6 +69,7 @@ cd build-$TARGET-stage2
   --with-sysroot="$PSPDEV/$TARGET" \
   --with-native-system-header-dir="/include" \
   --enable-languages="c,c++" \
+  --with-abi="$PSPTOOLCHAIN_ALLEGREX_GCC_DEFAULT_ABI" \
   --with-float=hard \
   --with-newlib \
   --disable-libssp \
