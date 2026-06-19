@@ -81,6 +81,22 @@ strip_target_archives()
   done < <(find "$dir" -name '*.a' -type f)
 }
 
+write_clang_wrapper()
+{
+  local path="$1"
+  local clang="$2"
+  local target="$3"
+  local sysroot="$4"
+  local flags="$5"
+  local extra_flags="$6"
+
+  printf '%s\n' \
+    '#!/bin/sh' \
+    "exec \"$clang\" -target \"$target\" --sysroot=\"$sysroot\" $flags $extra_flags \"\$@\"" \
+    > "$path"
+  chmod +x "$path"
+}
+
 if [[ "${PSPTOOLCHAIN_ALLEGREX_NEWLIB_NOABICALLS:-}" = "1" ]]; then
   export CFLAGS_FOR_TARGET="${CFLAGS_FOR_TARGET:-} ${PSPTOOLCHAIN_ALLEGREX_NOABICALLS_FLAGS}"
   export CXXFLAGS_FOR_TARGET="${CXXFLAGS_FOR_TARGET:-} ${PSPTOOLCHAIN_ALLEGREX_NOABICALLS_FLAGS}"
@@ -94,10 +110,17 @@ if [[ "${PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG:-}" = "1" ]]; then
   LLVM_AR="$(find_llvm_tool llvm-ar "${PSPTOOLCHAIN_ALLEGREX_LLVM_AR:-${LLVM_BINDIR:+$LLVM_BINDIR/llvm-ar}}")"
   LLVM_RANLIB="$(find_llvm_tool llvm-ranlib "${PSPTOOLCHAIN_ALLEGREX_LLVM_RANLIB:-${LLVM_BINDIR:+$LLVM_BINDIR/llvm-ranlib}}")"
 
-  CLANG_TARGET_FLAGS="-target ${PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_TARGET} ${PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_TARGET_FLAGS}"
+  CLANG_WRAPPER_DIR="$PWD/.psp-clang-tools"
+  CLANG_CC="$CLANG_WRAPPER_DIR/psp-clang"
+  CLANG_AS="$CLANG_WRAPPER_DIR/psp-clang-as"
+  CLANG_SYSROOT="${PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_SYSROOT:-$PSPDEV/$TARGET}"
+  rm -rf "$CLANG_WRAPPER_DIR"
+  mkdir -p "$CLANG_WRAPPER_DIR"
+  write_clang_wrapper "$CLANG_CC" "$CLANG" "$PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_TARGET" "$CLANG_SYSROOT" "$PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_TARGET_FLAGS" ""
+  write_clang_wrapper "$CLANG_AS" "$CLANG" "$PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_TARGET" "$CLANG_SYSROOT" "$PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_TARGET_FLAGS" "-c"
 
-  export CC_FOR_TARGET="$CLANG $CLANG_TARGET_FLAGS"
-  export AS_FOR_TARGET="$CLANG $CLANG_TARGET_FLAGS -c"
+  export CC_FOR_TARGET="$CLANG_CC"
+  export AS_FOR_TARGET="$CLANG_AS"
   export AR="$LLVM_AR"
   export RANLIB="$LLVM_RANLIB"
   export AR_FOR_TARGET="$LLVM_AR"
