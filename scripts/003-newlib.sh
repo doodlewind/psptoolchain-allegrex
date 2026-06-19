@@ -37,11 +37,74 @@ TARGET="psp"
 ## Determine the maximum number of processes that Make can work with.
 PROC_NR=$(getconf _NPROCESSORS_ONLN)
 
+find_llvm_tool()
+{
+  local tool="$1"
+  local override="$2"
+
+  if test -n "$override"; then
+    printf '%s\n' "$override"
+    return 0
+  fi
+
+  if command -v "$tool" >/dev/null 2>&1; then
+    command -v "$tool"
+    return 0
+  fi
+
+  if command -v brew >/dev/null 2>&1; then
+    local brew_llvm
+    brew_llvm="$(brew --prefix llvm 2>/dev/null || true)"
+    if test -n "$brew_llvm" && test -x "$brew_llvm/bin/$tool"; then
+      printf '%s\n' "$brew_llvm/bin/$tool"
+      return 0
+    fi
+  fi
+
+  echo "ERROR: Could not find $tool. Install LLVM or set PSPTOOLCHAIN_ALLEGREX_LLVM_BINDIR." >&2
+  return 1
+}
+
+strip_target_archives()
+{
+  local dir="$1"
+
+  if [[ "${PSPTOOLCHAIN_ALLEGREX_STRIP_ARCHIVES:-}" != "1" ]]; then
+    return 0
+  fi
+
+  local llvm_strip
+  llvm_strip="$(find_llvm_tool llvm-strip "${PSPTOOLCHAIN_ALLEGREX_LLVM_STRIP:-${PSPTOOLCHAIN_ALLEGREX_LLVM_BINDIR:+$PSPTOOLCHAIN_ALLEGREX_LLVM_BINDIR/llvm-strip}}")"
+
+  while IFS= read -r archive; do
+    "$llvm_strip" --strip-debug "$archive"
+  done < <(find "$dir" -name '*.a' -type f)
+}
+
 if [[ "${PSPTOOLCHAIN_ALLEGREX_NEWLIB_NOABICALLS:-}" = "1" ]]; then
   export CFLAGS_FOR_TARGET="${CFLAGS_FOR_TARGET:-} ${PSPTOOLCHAIN_ALLEGREX_NOABICALLS_FLAGS}"
   export CXXFLAGS_FOR_TARGET="${CXXFLAGS_FOR_TARGET:-} ${PSPTOOLCHAIN_ALLEGREX_NOABICALLS_FLAGS}"
   export LIBCFLAGS_FOR_TARGET="${LIBCFLAGS_FOR_TARGET:-} ${PSPTOOLCHAIN_ALLEGREX_NOABICALLS_FLAGS}"
   export CCASFLAGS="${CCASFLAGS:-} ${PSPTOOLCHAIN_ALLEGREX_NOABICALLS_FLAGS}"
+fi
+
+if [[ "${PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG:-}" = "1" ]]; then
+  LLVM_BINDIR="${PSPTOOLCHAIN_ALLEGREX_LLVM_BINDIR:-}"
+  CLANG="$(find_llvm_tool clang "${PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_CC:-${LLVM_BINDIR:+$LLVM_BINDIR/clang}}")"
+  LLVM_AR="$(find_llvm_tool llvm-ar "${PSPTOOLCHAIN_ALLEGREX_LLVM_AR:-${LLVM_BINDIR:+$LLVM_BINDIR/llvm-ar}}")"
+  LLVM_RANLIB="$(find_llvm_tool llvm-ranlib "${PSPTOOLCHAIN_ALLEGREX_LLVM_RANLIB:-${LLVM_BINDIR:+$LLVM_BINDIR/llvm-ranlib}}")"
+
+  CLANG_TARGET_FLAGS="-target ${PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_TARGET} ${PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_TARGET_FLAGS}"
+
+  export CC_FOR_TARGET="$CLANG $CLANG_TARGET_FLAGS"
+  export AS_FOR_TARGET="$CLANG $CLANG_TARGET_FLAGS -c"
+  export AR="$LLVM_AR"
+  export RANLIB="$LLVM_RANLIB"
+  export AR_FOR_TARGET="$LLVM_AR"
+  export RANLIB_FOR_TARGET="$LLVM_RANLIB"
+  export CFLAGS_FOR_TARGET="${PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_CFLAGS} ${CFLAGS_FOR_TARGET:-}"
+  export LIBCFLAGS_FOR_TARGET="${PSPTOOLCHAIN_ALLEGREX_NEWLIB_CLANG_CFLAGS} ${LIBCFLAGS_FOR_TARGET:-}"
+  export CCASFLAGS="-DDISABLE_PREFETCH ${CCASFLAGS:-}"
 fi
 
 # Create and enter the toolchain/build directory
@@ -62,7 +125,8 @@ rm -rf build-$TARGET && mkdir build-$TARGET && cd build-$TARGET
 ## Compile and install.
 make --quiet -j $PROC_NR clean
 make --quiet -j $PROC_NR all
-make --quiet -j $PROC_NR install-strip
+make --quiet -j $PROC_NR install
+strip_target_archives "$PSPDEV/$TARGET"
 make --quiet -j $PROC_NR clean
 
 # Copy license file
