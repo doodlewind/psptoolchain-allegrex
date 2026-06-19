@@ -61,6 +61,7 @@ cd build-$TARGET-stage1
   --prefix="$PSPDEV" \
   --target="$TARGET" \
   --enable-languages="c" \
+  --with-abi="$PSPTOOLCHAIN_ALLEGREX_GCC_DEFAULT_ABI" \
   --with-float=hard \
   --with-headers=no \
   --without-newlib \
