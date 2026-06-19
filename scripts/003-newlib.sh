@@ -37,6 +37,13 @@ TARGET="psp"
 ## Determine the maximum number of processes that Make can work with.
 PROC_NR=$(getconf _NPROCESSORS_ONLN)
 
+if [[ "${PSPTOOLCHAIN_ALLEGREX_NEWLIB_NOABICALLS:-}" = "1" ]]; then
+  PSP_NEWLIB_NOABICALLS_FLAGS="-mno-abicalls -fno-pic -G0"
+  export CFLAGS_FOR_TARGET="${CFLAGS_FOR_TARGET:-} ${PSP_NEWLIB_NOABICALLS_FLAGS}"
+  export CXXFLAGS_FOR_TARGET="${CXXFLAGS_FOR_TARGET:-} ${PSP_NEWLIB_NOABICALLS_FLAGS}"
+  export CCASFLAGS="${CCASFLAGS:-} ${PSP_NEWLIB_NOABICALLS_FLAGS}"
+fi
+
 # Create and enter the toolchain/build directory
 rm -rf build-$TARGET && mkdir build-$TARGET && cd build-$TARGET
 
