@@ -47,6 +47,7 @@ fi
 make --quiet -j $PROC_NR clean
 make --quiet -j $PROC_NR all
 make --quiet -j $PROC_NR install
+cp -f "$PSPDEV/psp/lib/libpthread.a" "$PSPDEV/psp/lib/libpthread-psp.a"
 make --quiet -j $PROC_NR clean
 
 # Copy license file
